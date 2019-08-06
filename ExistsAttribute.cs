@@ -11,12 +11,21 @@ namespace EfCore.Attributes
         public readonly string _columnName;
         private bool _valid = true;
 
+        /// <summary>
+        /// Only For Primary Keys
+        /// </summary>
+        /// <param name="model"></param>
         public ExistsAttribute(Type model)
             : base("No {0} field with this value was found in the database.")
         {
             _model = model;
         }
 
+        /// <summary>
+        /// Specify table and column name
+        /// </summary>
+        /// <param name="tableName"></param>
+        /// <param name="columnName">If null, the name of the field were this attribute is applied to, is used</param>
         public ExistsAttribute(string tableName, string columnName = null)
             : base("No {0} field with this value was found in the database.")
         {

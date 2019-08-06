@@ -6,7 +6,11 @@ This dotnet package contains custom validation attributes, and action filters fo
 
 - `[Exists]` Attribute
 
-When applied to an action parameter, or to a model field, ASP.NET makes sure an entry exists in the database with that parameter/field's value as its primary key.
+When applied to an action parameter, or to a model field, ASP.NET makes sure an entry exists in the database with that parameter/field's value as either its primary key, or in the specified column.
+
+- `[Unique]` Attribute
+
+When applied to an action parameter, or to a model field, ASP.NET makes sure no entry exists in the database with that parameter/field's value as either its primary key, or in the specified column.
 
 - `[ValidateDb]` Attribute
 
@@ -29,7 +33,7 @@ using EfCore.Attributes;
 1. Add the validation attributes to a controller action parameter, or a model field.
 
 ```cs
-[ValidateDB]
+[ValidateDB(DbContext)]
 public ActionResult Demo([Exists(typeof(User))]Guid id)
 ```
 
@@ -39,12 +43,15 @@ using EfCore.Attributes;
 public class StaffInputModel {
     [Exists]
     public Guid Id { get; set; }
+
+    [Unique("Staff", "BadgeNo")]
+    public string BadgeNo { get; set; }
 }
 ```
 
 1. Add the action filter to the controller or action.
 
 ```cs
-[ValidateDB]
+[ValidateDB(DbContext)]
 public ActionResult Demo([FromBody]StaffInputModel model)
 ```
