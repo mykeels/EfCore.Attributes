@@ -49,7 +49,7 @@ namespace EfCore.Attributes
         }
 
         private bool CheckDeepExists(ActionExecutingContext context, IEnumerable<ControllerParameterDescriptor> parameters) {
-            var _context = (IdentityDbContext)context.HttpContext.RequestServices.GetService(_dbContextType);
+            var _context = (DbContext)context.HttpContext.RequestServices.GetService(_dbContextType);
 
             foreach (var p in parameters) {
                 var attributes = p.ParameterInfo.GetCustomAttributes(typeof(FromBodyAttribute), false).Cast<FromBodyAttribute>();
@@ -135,7 +135,7 @@ namespace EfCore.Attributes
         }
 
         private bool CheckDeepUnique(ActionExecutingContext context, IEnumerable<ControllerParameterDescriptor> parameters) {
-            var _context = (IdentityDbContext)context.HttpContext.RequestServices.GetService(_dbContextType);
+            var _context = (DbContext)context.HttpContext.RequestServices.GetService(_dbContextType);
 
             foreach (var p in parameters) {
                 var attributes = p.ParameterInfo.GetCustomAttributes(typeof(FromBodyAttribute), false).Cast<FromBodyAttribute>();
