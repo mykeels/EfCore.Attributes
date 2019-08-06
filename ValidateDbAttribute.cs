@@ -74,11 +74,9 @@ namespace EfCore.Attributes
                                 existsAttribute.SetValid(entry != null);
                             }
                             else if (!String.IsNullOrEmpty(existsAttribute._tableName)) {
-                                
+                                string sql = @"select ? from ? where ? == ?";
 
-                                string sql = $@"select {column ?? "1"} from {existsAttribute._tableName} where {column} == ?";
-
-                                int rows = _context.Database.ExecuteSqlCommand(sql, propertyValue);
+                                int rows = _context.Database.ExecuteSqlCommand(sql, column, existsAttribute._tableName, column, propertyValue);
 
                                 existsAttribute.SetValid(rows > 0);
                             }
@@ -116,9 +114,9 @@ namespace EfCore.Attributes
                         }
                         else if (!String.IsNullOrEmpty(attribute._tableName)) {
 
-                            string sql = $@"select {column ?? "1"} from {attribute._tableName} where {column} == ?";
+                            string sql = @"select ? from ? where ? == ?";
 
-                            int rows = _context.Database.ExecuteSqlCommand(sql, value);
+                            int rows = _context.Database.ExecuteSqlCommand(sql, column, attribute._tableName, column, value);
 
                             attribute.SetValid(rows > 0);
                         }
@@ -162,10 +160,9 @@ namespace EfCore.Attributes
                                 uniqueAttribute.SetValid(entry != null);
                             }
                             else if (!String.IsNullOrEmpty(uniqueAttribute._tableName)) {
+                                string sql = @"select ? from ? where ? == ?";
 
-                                string sql = $@"select {column ?? "1"} from {uniqueAttribute._tableName} where {column} == ?";
-
-                                int rows = _context.Database.ExecuteSqlCommand(sql, propertyValue);
+                                int rows = _context.Database.ExecuteSqlCommand(sql, column, uniqueAttribute._tableName, column, propertyValue);
 
                                 uniqueAttribute.SetValid(rows == 0);
                             }
@@ -204,9 +201,9 @@ namespace EfCore.Attributes
                         }
                         else if (!String.IsNullOrEmpty(attribute._tableName)) {
 
-                            string sql = $@"select {column ?? "1"} from {attribute._tableName} where {column} == ?";
+                            string sql = @"select ? from ? where ? == ?";
 
-                            int rows = _context.Database.ExecuteSqlCommand(sql, value);
+                            int rows = _context.Database.ExecuteSqlCommand(sql, column, attribute._tableName, column, value);
 
                             attribute.SetValid(rows > 0);
                         }
