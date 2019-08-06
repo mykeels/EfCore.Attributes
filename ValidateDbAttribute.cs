@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.EntityFrameworkCore;
 using System.Reflection;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 
 namespace EfCore.Attributes
 {
@@ -21,11 +22,25 @@ namespace EfCore.Attributes
 
             var parameters = context.ActionDescriptor.Parameters.Cast<ControllerParameterDescriptor>();
 
-            CheckShallowExists(context, parameters);
+            bool isValid = true;
 
-            CheckDeepExists(context, parameters);
+            if (isValid) {
+                isValid = CheckShallowExists(context, parameters);
+            }
 
-            if (!context.ModelState.IsValid) {
+            if (isValid) {
+                isValid = CheckDeepExists(context, parameters);
+            }
+
+            if (isValid) {
+                isValid = CheckShallowUnique(context, parameters);
+            }
+
+            if (isValid) {
+                isValid = CheckDeepUnique(context, parameters);
+            }
+
+            if (!isValid) {
                 context.Result = new BadRequestObjectResult(context.ModelState);
                 return;
             }
@@ -33,8 +48,8 @@ namespace EfCore.Attributes
             return;
         }
 
-        private void CheckDeepExists(ActionExecutingContext context, IEnumerable<ControllerParameterDescriptor> parameters) {
-            var _context = (DbContext)context.HttpContext.RequestServices.GetService(_dbContextType);
+        private bool CheckDeepExists(ActionExecutingContext context, IEnumerable<ControllerParameterDescriptor> parameters) {
+            var _context = (IdentityDbContext)context.HttpContext.RequestServices.GetService(_dbContextType);
 
             foreach (var p in parameters) {
                 var attributes = p.ParameterInfo.GetCustomAttributes(typeof(FromBodyAttribute), false).Cast<FromBodyAttribute>();
@@ -51,22 +66,38 @@ namespace EfCore.Attributes
 
                         if (propertyValue != null) {
                             var existsAttribute = property.GetCustomAttribute<ExistsAttribute>();
+                            string column = existsAttribute._columnName ?? property.Name;
 
-                            object entry = _context.Find(existsAttribute._model, propertyValue);
-                            existsAttribute.SetValid(entry != null);
+                            if (existsAttribute._model != null) {
+                                object entry = _context.Find(existsAttribute._model, propertyValue);
+
+                                existsAttribute.SetValid(entry != null);
+                            }
+                            else if (!String.IsNullOrEmpty(existsAttribute._tableName)) {
+                                
+
+                                string sql = $@"select {column ?? "1"} from {existsAttribute._tableName} where {column} == ?";
+
+                                int rows = _context.Database.ExecuteSqlCommand(sql, propertyValue);
+
+                                existsAttribute.SetValid(rows > 0);
+                            }
+                            
                             try {
                                 existsAttribute.Validate(propertyValue, property.Name);
                             }
                             catch(Exception ex) {
-                                context.ModelState.AddModelError(property.Name, ex.Message);
+                                context.ModelState.AddModelError(column, ex.Message);
+                                return false;
                             }
                         }
                     }
                 }
             }
+            return true;
         }
 
-        private void CheckShallowExists(ActionExecutingContext context, IEnumerable<ControllerParameterDescriptor> parameters) {
+        private bool CheckShallowExists(ActionExecutingContext context, IEnumerable<ControllerParameterDescriptor> parameters) {
             var _context = (DbContext)context.HttpContext.RequestServices.GetService(_dbContextType);
 
             foreach (var p in parameters) {
@@ -77,17 +108,120 @@ namespace EfCore.Attributes
                     context.ActionArguments.TryGetValue(p.Name, out value);
 
                     if (value != null) {
-                        object entry = _context.Find(attribute._model, value);
-                        attribute.SetValid(entry != null);
+                        string column = attribute._columnName ?? p.Name;
+                        if (attribute._model != null) {
+                            object entry = _context.Find(attribute._model, value);
+
+                            attribute.SetValid(entry != null);
+                        }
+                        else if (!String.IsNullOrEmpty(attribute._tableName)) {
+
+                            string sql = $@"select {column ?? "1"} from {attribute._tableName} where {column} == ?";
+
+                            int rows = _context.Database.ExecuteSqlCommand(sql, value);
+
+                            attribute.SetValid(rows > 0);
+                        }
+
                         try {
                             attribute.Validate(value, p.Name);
                         }
                         catch(Exception ex) {
-                            context.ModelState.AddModelError(p.Name, ex.Message);
+                            context.ModelState.AddModelError(column, ex.Message);
+                            return false;
                         }
                     }
                 }
             }
+            return true;
+        }
+
+        private bool CheckDeepUnique(ActionExecutingContext context, IEnumerable<ControllerParameterDescriptor> parameters) {
+            var _context = (IdentityDbContext)context.HttpContext.RequestServices.GetService(_dbContextType);
+
+            foreach (var p in parameters) {
+                var attributes = p.ParameterInfo.GetCustomAttributes(typeof(FromBodyAttribute), false).Cast<FromBodyAttribute>();
+
+                foreach (var attribute in attributes) {
+                    object value;
+                    context.ActionArguments.TryGetValue(p.Name, out value);
+
+                    var properties = value.GetType().GetProperties()
+                                                .Where(property => property.GetCustomAttribute(typeof(UniqueAttribute)) != null);
+                    
+                    foreach (var property in properties) {
+                        var propertyValue = property.GetValue(value);
+
+                        if (propertyValue != null) {
+                            var uniqueAttribute = property.GetCustomAttribute<UniqueAttribute>();
+                            string column = uniqueAttribute._columnName ?? property.Name;
+
+                            if (uniqueAttribute._model != null) {
+                                object entry = _context.Find(uniqueAttribute._model, propertyValue);
+
+                                uniqueAttribute.SetValid(entry != null);
+                            }
+                            else if (!String.IsNullOrEmpty(uniqueAttribute._tableName)) {
+
+                                string sql = $@"select {column ?? "1"} from {uniqueAttribute._tableName} where {column} == ?";
+
+                                int rows = _context.Database.ExecuteSqlCommand(sql, propertyValue);
+
+                                uniqueAttribute.SetValid(rows == 0);
+                            }
+                            
+                            try {
+                                uniqueAttribute.Validate(propertyValue, property.Name);
+                            }
+                            catch(Exception ex) {
+                                context.ModelState.AddModelError(column, ex.Message);
+                                return false;
+                            }
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+
+        private bool CheckShallowUnique(ActionExecutingContext context, IEnumerable<ControllerParameterDescriptor> parameters) {
+            var _context = (DbContext)context.HttpContext.RequestServices.GetService(_dbContextType);
+
+            foreach (var p in parameters) {
+                var attributes = p.ParameterInfo.GetCustomAttributes(typeof(UniqueAttribute), false).Cast<UniqueAttribute>();
+
+                foreach (var attribute in attributes) {
+                    object value;
+                    context.ActionArguments.TryGetValue(p.Name, out value);
+
+                    if (value != null) {
+                        string column = attribute._columnName ?? p.Name;
+
+                        if (attribute._model != null) {
+                            object entry = _context.Find(attribute._model, value);
+
+                            attribute.SetValid(entry != null);
+                        }
+                        else if (!String.IsNullOrEmpty(attribute._tableName)) {
+
+                            string sql = $@"select {column ?? "1"} from {attribute._tableName} where {column} == ?";
+
+                            int rows = _context.Database.ExecuteSqlCommand(sql, value);
+
+                            attribute.SetValid(rows > 0);
+                        }
+
+                        try {
+                            attribute.Validate(value, p.Name);
+                        }
+                        catch(Exception ex) {
+                            context.ModelState.AddModelError(column, ex.Message);
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
         }
     }
 }
