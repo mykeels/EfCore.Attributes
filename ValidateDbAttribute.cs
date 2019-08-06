@@ -157,7 +157,7 @@ namespace EfCore.Attributes
                             if (uniqueAttribute._model != null) {
                                 object entry = _context.Find(uniqueAttribute._model, propertyValue);
 
-                                uniqueAttribute.SetValid(entry != null);
+                                uniqueAttribute.SetValid(entry == null);
                             }
                             else if (!String.IsNullOrEmpty(uniqueAttribute._tableName)) {
                                 string sql = @"select ? from ? where ? == ?";
@@ -197,7 +197,7 @@ namespace EfCore.Attributes
                         if (attribute._model != null) {
                             object entry = _context.Find(attribute._model, value);
 
-                            attribute.SetValid(entry != null);
+                            attribute.SetValid(entry == null);
                         }
                         else if (!String.IsNullOrEmpty(attribute._tableName)) {
 
@@ -205,7 +205,7 @@ namespace EfCore.Attributes
 
                             int rows = _context.Database.ExecuteSqlCommand(sql, column, attribute._tableName, column, value);
 
-                            attribute.SetValid(rows > 0);
+                            attribute.SetValid(rows == 0);
                         }
 
                         try {
